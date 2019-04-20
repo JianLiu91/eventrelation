@@ -38,6 +38,20 @@ def extract_event_CAT(etreeRoot):
     return event_dict
 
 
+def extract_time_CAT(etreeRoot):
+
+    time_dict = collections.defaultdict(list)
+
+    for elem in etreeRoot.findall('Markables/'):
+        if elem.tag.startswith("TIME_DATE"):
+            for token_id in elem.findall('token_anchor'): # the event should have at least one token
+                event_mention_id = elem.get('m_id', 'nothing')
+                token_mention_id = token_id.get('t_id', 'nothing')
+                time_dict[event_mention_id].append(token_mention_id)
+
+    return time_dict
+
+
 def extract_corefRelations(etreeRoot, d):
     """
     :param etreeRoot: ECB+ XML root
@@ -65,7 +79,6 @@ def extract_corefRelations(etreeRoot, d):
 
 def extract_plotLink(etreeRoot, d):
     """
-
     :param etreeRoot: ESC XML root
     :param d: dictionary with annotaed events in ESC (event_dict)
     :return:
@@ -86,6 +99,25 @@ def extract_plotLink(etreeRoot, d):
                     plot_dict[(val1, val2)] = relvalu
 
     return plot_dict
+
+
+def extract_timeLink(etreeRoot, d):
+
+    tlink_dict = collections.defaultdict(list)
+
+    for elem in etreeRoot.findall('Relations/'):
+        if elem.tag == "TLINK":
+            source_pl = elem.find('source').get('m_id', 'null')
+            target_pl = elem.find('target').get('m_id', 'null')
+            relvalu = elem.get('relType', 'null')
+
+            if source_pl in d:
+                val1 =  "_".join(d[source_pl])
+                if target_pl in d:
+                    val2 = "_".join(d[target_pl])
+                    tlink_dict[(val1, val2)] = relvalu
+
+    return tlink_dict
 
 
 def read_file(ecbplus_original, ecbstart_new, evaluate_file):
@@ -117,12 +149,23 @@ def read_file(ecbplus_original, ecbstart_new, evaluate_file):
     ecb_star_events = extract_event_CAT(ecbstar_root)
     ecbstar_events_plotLink = extract_plotLink(ecbstar_root, ecb_star_events)
 
+    ecb_star_time = extract_time_CAT(ecbstar_root)
+    ecb_star_time.update(ecb_star_events)
+    ecbstar_timelink = extract_timeLink(ecbstar_root, ecb_star_time)
+
+
     # TLINK ??
 
     print(ecbplus_original)
     print(ecb_star_events)
-    print(ecb_coref_relations)
+    # print(ecb_star_time)
     print(ecbstar_events_plotLink)
+    print(ecbstar_timelink)
+
+
+    # print(ecb_coref_relations)
+    # print(ecbstar_events_plotLink)
+
 
 
 
