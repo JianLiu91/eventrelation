@@ -3,7 +3,7 @@ import os
 import os.path
 from lxml import etree
 import collections
-
+import pickle
 
 
 def create_folder(filepath):
@@ -12,12 +12,56 @@ def create_folder(filepath):
         os.makedirs(directory)
 
 
-
 def check_entry_dict(event_tokens, d):
     if event_tokens in d:
         return " ".join(d[event_tokens])
     else:
         return event_tokens
+
+
+def get_sentence(num, all_token):
+    temp = []
+    for token in all_token:
+        if token[1] == num:
+            temp.append(token[-1])
+    return temp
+
+
+def transfter_to_token(s, all_token):
+    tmp = []
+    for c in s.split('_'):
+        token = all_token[int(c) - 1]
+        tmp.append(token[-1])
+
+    return ' '.join(tmp)
+
+
+def get_sentence_num(s, all_token):
+    c = s.split('_')[0]
+    return all_token[int(c)-1][1]
+
+
+def generate_feature(s, t, value, all_token):
+    s_text = transfter_to_token(s, all_token)
+    t_text = transfter_to_token(t, all_token)
+    s_sentence = get_sentence(get_sentence_num(s, all_token), all_token)
+    t_sentence = get_sentence(get_sentence_num(t, all_token), all_token)
+
+    return s_text, t_text
+
+
+def all_tokens(filename):
+    ecbplus = etree.parse(filename, etree.XMLParser(remove_blank_text=True))
+    root_ecbplus = ecbplus.getroot()
+    root_ecbplus.getchildren()
+
+    all_token = []
+
+    for elem in root_ecbplus.findall('token'):
+        temp = (elem.get('t_id'), elem.get('sentence'),
+            elem.get('number'), elem.text)
+        all_token.append(temp)
+    return all_token
 
 
 def extract_event_CAT(etreeRoot):
@@ -107,8 +151,11 @@ def extract_timeLink(etreeRoot, d):
 
     for elem in etreeRoot.findall('Relations/'):
         if elem.tag == "TLINK":
-            source_pl = elem.find('source').get('m_id', 'null')
-            target_pl = elem.find('target').get('m_id', 'null')
+            try:
+                source_pl = elem.find('source').get('m_id', 'null')
+                target_pl = elem.find('target').get('m_id', 'null')
+            except:
+                continue
             relvalu = elem.get('relType', 'null')
 
             if source_pl in d:
@@ -119,8 +166,17 @@ def extract_timeLink(etreeRoot, d):
 
     return tlink_dict
 
+def read_evaluation_file(fn):
+    res = []
+    if not os.path.exists(fn):
+        return res
+    for line in open(fn):
+        fileds = line.strip().split('\t')
+        res.append(fileds)
+    return res
 
-def read_file(ecbplus_original, ecbstart_new, evaluate_file):
+
+def read_file(ecbplus_original, ecbstart_new, evaluate_file, evaluate_coref_file):
 
     """
     :param ecbplus_original: ECB+ CAT data
@@ -154,22 +210,23 @@ def read_file(ecbplus_original, ecbstart_new, evaluate_file):
     ecbstar_timelink = extract_timeLink(ecbstar_root, ecb_star_time)
 
 
+    evaluation_data = read_evaluation_file(evaluate_file)
+    evaluationcrof_data = read_evaluation_file(evaluate_coref_file)
     # TLINK ??
 
-    print(ecbplus_original)
-    print(ecb_star_events)
-    # print(ecb_star_time)
-    print(ecbstar_events_plotLink)
-    print(ecbstar_timelink)
+    # print(ecb_star_events) # all the events
+    # print(ecb_star_time) # all the time expressions
+    # print(ecbstar_events_plotLink) # direct event plot link
+    # print(ecbstar_timelink)
 
-
-    # print(ecb_coref_relations)
-    # print(ecbstar_events_plotLink)
+    return ecb_star_events, ecb_coref_relations, ecb_star_time, ecbstar_events_plotLink, ecbstar_timelink, evaluation_data, evaluationcrof_data
 
 
 
 
-def read_corpus(ecbtopic, ecbstartopic, evaluationtopic):
+
+
+def make_corpus(ecbtopic, ecbstartopic, evaluationtopic, evaluationcoreftopic, datadict):
 
     """
     :param ecbtopic: ECB+ topic folder in CAT format
@@ -185,6 +242,8 @@ def read_corpus(ecbtopic, ecbstartopic, evaluationtopic):
             ecbstartopic += '/'
         if evaluationtopic[-1] != '/':
             evaluationtopic += '/'
+        if evaluationcoreftopic[-1] != '/':
+            evaluationcoreftopic += '/'
 
         ecb_subfolder = os.path.dirname(ecbtopic).split("/")[-1]
 
@@ -193,20 +252,68 @@ def read_corpus(ecbtopic, ecbstartopic, evaluationtopic):
                 ecb_file = f
                 star_file = ecbstartopic + f + ".xml"
                 evaluate_file = evaluationtopic + f
+                evaluate_coref_file = evaluationcoreftopic + f
 
-                read_file(ecbtopic + ecb_file, star_file, evaluate_file)
-
-            elif f.endswith('ecb.xml'):
-                pass
-            else:
-                print("Missing file" + f)
-
+                ecb_star_events, ecb_coref_relations, ecb_star_time, ecbstar_events_plotLink, ecbstar_timelink, evaluation_data, evaluationcrof_data = read_file(ecbtopic + ecb_file, star_file, evaluate_file, evaluate_coref_file)
+                all_token = all_tokens(star_file)
+                datadict[star_file] = [all_token, ecb_star_events, ecb_coref_relations, ecb_star_time, ecbstar_events_plotLink, ecbstar_timelink, evaluation_data, evaluationcrof_data]
+                # for elem in ecbstar_events_plotLink:
+                #     (s, t), value = elem, ecbstar_events_plotLink[elem]
+                #     s_text, t_text = generate_feature(s, t, value, all_token)
+                #     print(s_text, t_text, value)
 
 def main(argv=None):
-    ECBplusTopic = '/home/ryan/research/EventStoryLine/ECB+_LREC2014/ECB+/1'
-    ECBstarTopic = '/home/ryan/research/EventStoryLine/annotated_data/v0.9/1'
-    EvaluationTopic = '/home/ryan/research/EventStoryLine/evaluation_format/full_corpus/v0.9/event_mentions_extended/1'
-    read_corpus(ECBplusTopic, ECBstarTopic, EvaluationTopic)
+    
+    with open('data.pickle', 'rb') as f:
+        # The protocol version used is detected automatically, so we do not
+        # have to specify it.
+        data = pickle.load(f)
+
+    # data format:
+    # all_token
+    # ecb_star_events
+    # ecb_coref_relations
+    # ecb_star_time
+    # ecbstar_events_plotLink
+    # ecbstar_timelink
+    # evaluation_data
+    # evaluationcrof_data
+    f = open('training_data.txt', 'w')
+    for key in data:
+        [all_token, ecb_star_events, ecb_coref_relations,
+        ecb_star_time, ecbstar_events_plotLink, ecbstar_timelink, 
+        evaluation_data, evaluationcrof_data] = data[key]
+
+        # for elem in evaluation_data:
+        #     s, t, value = elem
+        #     s_text = transfter_to_token(s, all_token)
+        #     t_text = transfter_to_token(t, all_token)
+        #     temp = [key, s_text, t_text, value]
+        #     print(temp)
+
+
+        for event1 in ecb_star_events:
+            for event2 in ecb_star_events:
+
+                if event1 == event2:
+                    continue
+
+                offset1 = ecb_star_events[event1]
+                offset2 = ecb_star_events[event2]
+
+                offset1 = '_'.join(offset1)
+                offset2 = '_'.join(offset2)
+
+                # every two pairs
+                rel = 'NULL'
+                for elem in evaluation_data:
+                    e1, e2, value = elem
+                    if e1 == offset1 and e2 == offset2:
+                        rel = value
+
+                s_text = transfter_to_token(offset1, all_token)
+                t_text = transfter_to_token(offset2, all_token)
+                print('\t'.join([key, offset1, offset2, s_text, t_text, rel]), file=f)
 
 
 if __name__ == '__main__':
