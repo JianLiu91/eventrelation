@@ -255,6 +255,10 @@ def make_corpus(ecbtopic, ecbstartopic, evaluationtopic, evaluationcoreftopic, d
                 evaluate_coref_file = evaluationcoreftopic + f
 
                 ecb_star_events, ecb_coref_relations, ecb_star_time, ecbstar_events_plotLink, ecbstar_timelink, evaluation_data, evaluationcrof_data = read_file(ecbtopic + ecb_file, star_file, evaluate_file, evaluate_coref_file)
+                for key in ecb_star_events:
+                    ecb_star_events[key] = '_'.join(ecb_star_events[key])
+                for key in ecb_star_time:
+                    ecb_star_time[key] = '_'.join(ecb_star_time[key])
                 all_token = all_tokens(star_file)
                 datadict[star_file] = [all_token, ecb_star_events, ecb_coref_relations, ecb_star_time, ecbstar_events_plotLink, ecbstar_timelink, evaluation_data, evaluationcrof_data]
                 # for elem in ecbstar_events_plotLink:
@@ -285,7 +289,7 @@ def main(argv=None):
         print(key)
 
 
-    with open('data.pickle', 'wb') as f:
+    with open('document_raw.pickle', 'wb') as f:
     # Pickle the 'data' dictionary using the highest protocol available.
         pickle.dump(data_dict, f, pickle.HIGHEST_PROTOCOL)
     
