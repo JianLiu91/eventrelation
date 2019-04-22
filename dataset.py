@@ -127,4 +127,5 @@ class Dataset(object):
 if __name__ == '__main__':
     dataset = Dataset(10)
     for batch in dataset.reader('cpu', True):
-        print(batch[0])
+        data_x1, mask_x1, data_x2, mask_x2, data_y = batch
+        print(data_x1.size(0))
