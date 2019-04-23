@@ -60,7 +60,7 @@ def get_mask_from_sequence_lengths(sequence_lengths: torch.Tensor, max_length: i
 
 
 class Dataset(object):
-    def __init__(self, batch_size, ds='Train'):
+    def __init__(self, batch_size, dataset):
         super(Dataset, self).__init__()
 
         self.batch_size = batch_size
@@ -68,18 +68,10 @@ class Dataset(object):
             'NULL': 0,
             'null': 0,
             'FALLING_ACTION': 1,
-            'PRECONDITION': 2
+            'PRECONDITION': 1
         }
 
-        input_map = 'training_data.txt'
-        dataset = []
-        with open(input_map) as f:
-            for line in f:
-                field = line.strip().split('\t')
-                dataset.append(field)
-
         self.construct_index(dataset)
-        self.shuffle()
 
     def construct_index(self, dataset):
         self.dataset = dataset
@@ -121,7 +113,7 @@ class Dataset(object):
 
         return [torch.LongTensor(data_x1).to(device), mask_x1,
                 torch.LongTensor(data_x2).to(device), mask_x2,
-                torch.Tensor(data_y).to(device)]
+                torch.LongTensor(data_y).to(device)]
 
 
 if __name__ == '__main__':
